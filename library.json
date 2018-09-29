@@ -1,0 +1,16 @@
+{
+  "name": "ADS12xx Arduino",
+  "keywords": "ADC, ADS1256",
+  "description": "Library for the TI ADS1256 24bit ADC",
+  "homepage": "https://github.com/jbott/Arduino_ADS12xx",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jbott/Arduino_ADS12xx.git"
+  },
+  "authors": {
+    "name": "John Ott",
+    "email": "john@johnott.us"
+  },
+  "frameworks": "arduino",
+  "platforms": "*"
+}
