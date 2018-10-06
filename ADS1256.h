@@ -1,6 +1,10 @@
 #ifndef ADS1256_H
 #define ADS1256_H
 
+#if defined(CORE_TEENSY)
+#define TI_ADS_ISR (1)
+#endif // CORE_TEENSY
+
 #include "stdint.h"
 #include "stdlib.h"
 
@@ -31,7 +35,7 @@
 #define ADS1256_MUX_AINCOM  (0x8)
 
 // Define command enums
-#define ADS1256_CMD_WAKEUP      (0x00)  // Completes SYNC and Exits Standby Mode
+#define ADS1256_CMD_WAKEUP_LOW  (0x00)  // Completes SYNC and Exits Standby Mode
 #define ADS1256_CMD_RDATA       (0x01)  // Read Data
 #define ADS1256_CMD_RDATAC      (0x03)  // Read Data Continuously
 #define ADS1256_CMD_SDATAC      (0x0F)  // Stop Read Data Continuously
@@ -45,7 +49,7 @@
 #define ADS1256_CMD_SYNC        (0xFC)  // Synchronize the A/D Conversion
 #define ADS1256_CMD_STANDBY     (0xFD)  // Begin Standby Mode
 #define ADS1256_CMD_RESET       (0xFE)  // Reset to Power-Up Values
-#define ADS1256_CMD_WAKEUP      (0xFF)  // Completes SYNC and Exits Standby Mode
+#define ADS1256_CMD_WAKEUP_HIGH (0xFF)  // Completes SYNC and Exits Standby Mode
 
 
 class ADS1256 {
@@ -61,6 +65,8 @@ class ADS1256 {
         ADS12xxStatus WriteRegisters(const int addr, const uint8_t *src, const size_t length);
         ADS12xxStatus WriteRegister(const int addr, uint8_t value);
 
+        void EndOfConversionISR(void);
+
         // High Level API
         ADS12xxStatus SetMux(const int pos_ain, const int neg_ain = ADS1256_MUX_AINCOM);
 
@@ -70,12 +76,26 @@ class ADS1256 {
         ADS12xxStatus ShiftOutData(int32_t *dst);
         ADS12xxStatus EndReadDataContinuous();
 
+#ifdef TI_ADS_ISR
+        void AttachISR(void);
+        int32_t GetLatestValue(void);
+
+        void WaitForNewData(void);
+#endif // TI_ADS_ISR
+
+
     private:
         int mPinCS;
         int mPinDRDY;
         int mPinRST;
 
         int mTimeout;
+
+#ifdef TI_ADS_ISR
+        volatile bool mNewData;
+        unsigned long mLastMillis;
+        int32_t mLastValue;
+#endif // TI_ADS_ISR
 
         ADS12xxStatus WaitForDRDY(const int timeout);
 

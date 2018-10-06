@@ -17,6 +17,20 @@ ADS1256::ADS1256(int cs, int drdy, int rst, int timeout)
     mTimeout = timeout;
 }
 
+#ifdef TI_ADS_ISR
+void ADS1256::AttachISR(void)
+{
+    mNewData = false;
+
+    void callISR(void)
+    {
+        this->EndOfConversionISR();
+    }
+
+    attachInterrupt(digitalPinToInterrupt(drdy), callISR, FALLING);
+}
+#endif // TI_ADS_ISR
+
 ADS12xxStatus ADS1256::begin()
 {
     // Setup default pin states
@@ -56,6 +70,8 @@ void ADS1256::FinishTransaction(void)
 
 ADS12xxStatus ADS1256::WaitForDRDY(const int timeout)
 {
+#ifndef TI_ADS_ISR
+    // No ISR, we need to poll
     int value = HIGH;
     unsigned long start = millis();
 
@@ -65,12 +81,27 @@ ADS12xxStatus ADS1256::WaitForDRDY(const int timeout)
         value = digitalRead(mPinDRDY);
     }
     while ((value != LOW) &&
-           ((timeout == -1) || (millis() - start < timeout)));
+           ((timeout == -1) || ((long)(millis() - start) < timeout)));
 
     if (value == LOW)
     {
         return ADS12xxStatus::SUCCESS;
     }
+#else // TI_ADS_ISR
+    unsigned long start = millis();
+
+    // Wait for ISR to signal new data
+    do {
+        continue;
+    }
+    while ((mNewData != true) &&
+           ((timeout == -1) || ((long)(millis() - start) < timeout)));
+
+    if (mNewData)
+    {
+        return ADS12xxStatus::SUCCESS;
+    }
+#endif // TI_ADS_ISR
 
     return ADS12xxStatus::TIMEOUT;
 }
@@ -254,3 +285,33 @@ ADS12xxStatus ADS1256::EndReadDataContinuous()
 {
     return SendCommand(ADS1256_CMD_SDATAC);
 }
+
+#ifdef TI_ADS_ISR
+void WaitForNewData(void)
+{
+    const unsigned long curr_millis = mLastMillis;
+    while (curr_millis == mLastMillis)
+    {
+        continue;
+    }
+}
+
+int32_t ADS1256::GetLatestValue(void)
+{
+    return mLastValue;
+}
+
+void ADS1256::EndOfConversionISR(void)
+{
+    // EOC ISR
+    // Shift out data from ADC
+    int32_t value = 0;
+    mNewData = true;
+    this->ShiftOutData(&value);
+    mNewData = false;
+
+    // Update member values
+    mLastMillis = millis();
+    mLastValue = value;
+}
+#endif // TI_ADS_ISR
